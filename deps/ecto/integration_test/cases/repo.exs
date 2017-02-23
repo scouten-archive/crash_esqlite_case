@@ -408,40 +408,6 @@ defmodule Ecto.Integration.RepoTest do
     end
   end
 
-  test "insert all" do
-    assert {2, nil} = TestRepo.insert_all("comments", [[text: "1"], %{text: "2", lock_version: 2}])
-    assert [%Comment{text: "1", lock_version: 1},
-            %Comment{text: "2", lock_version: 2}] = TestRepo.all(Comment)
-
-    assert {2, nil} = TestRepo.insert_all(Post, [[], []])
-    assert [%Post{}, %Post{}] = TestRepo.all(Post)
-
-    assert {0, nil} = TestRepo.insert_all("posts", [])
-  end
-
-  test "insert all with dumping" do
-    date = Ecto.DateTime.utc
-    assert {2, nil} = TestRepo.insert_all(Post, [%{inserted_at: date}, %{title: "date"}])
-    assert [%Post{inserted_at: ^date, title: nil},
-            %Post{inserted_at: nil, title: "date"}] = TestRepo.all(Post)
-  end
-
-  test "insert all autogenerates for binary id type" do
-    custom = TestRepo.insert!(%Custom{bid: nil})
-    assert custom.bid
-    assert TestRepo.get(Custom, custom.bid)
-    assert TestRepo.delete!(custom)
-    refute TestRepo.get(Custom, custom.bid)
-
-    uuid = Ecto.UUID.generate
-    assert {2, nil} = TestRepo.insert_all(Custom, [%{uuid: uuid}, %{bid: custom.bid}])
-    assert [%Custom{bid: bid2, uuid: nil},
-            %Custom{bid: bid1, uuid: ^uuid}] = Enum.sort_by(TestRepo.all(Custom), & &1.uuid)
-    assert bid1 && bid2
-    assert custom.bid != bid1
-    assert custom.bid == bid2
-  end
-
   test "update all" do
     assert %Post{id: id1} = TestRepo.insert!(%Post{title: "1"})
     assert %Post{id: id2} = TestRepo.insert!(%Post{title: "2"})
