@@ -6,6 +6,8 @@ Code.require_file "../support/file_helpers.exs", __DIR__
 defmodule Ecto.Integration.PoolTest do
   use ExUnit.Case, async: true
 
+  use Ecto.Integration.Case
+
   repo = Application.get_env(:ecto, Ecto.Integration.TestRepo) ||
          raise "could not find configuration for Ecto.Integration.TestRepo"
 
