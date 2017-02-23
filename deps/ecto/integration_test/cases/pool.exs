@@ -1,5 +1,8 @@
 Code.require_file "../support/file_helpers.exs", __DIR__
 
+# IMPORTANT! This test seems to be a necessary condition for the crash we're tracking.
+# When I removed this test suite, it did not crash in 200 attempts.
+
 defmodule Ecto.Integration.PoolTest do
   use ExUnit.Case, async: true
 
