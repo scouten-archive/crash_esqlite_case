@@ -3,6 +3,7 @@
 set -e
 
 # mix deps.get # not necessary since we've added deps
+MIX_ENV=test mix compile
 ./integration/hack_out_incompatible_tests.sh
 
 for i in {1..100}

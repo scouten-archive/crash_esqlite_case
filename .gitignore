@@ -2,3 +2,5 @@
 /tmp
 erl_crash.dump
 *.ez
+/deps/sbroker/ebin
+/deps/sbroker/.rebar3/erlcinfo
