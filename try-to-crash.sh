@@ -2,12 +2,12 @@
 
 set -e
 
-# mix deps.get # not necessary since we've added deps 
+# mix deps.get # not necessary since we've added deps
 ./integration/hack_out_incompatible_tests.sh
 
 for i in {1..100}
 do
   echo
   echo --------- Attempt $i ---------
-  mix test
+  mix test --no-deps-check
 done
