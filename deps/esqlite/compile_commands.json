@@ -1,0 +1,14 @@
+[
+{ "file"      : "c_src/esqlite3_nif.c"
+, "directory" : "/Users/scouten/Projects/crash_esqlite_case/deps/esqlite"
+, "command"   : "cc -c -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -g -Wall -fPIC -MMD -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/lib/erl_interface-3.9.2/include\" -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/erts-8.2/include\" c_src/esqlite3_nif.c -o c_src/esqlite3_nif.o"
+},
+{ "file"      : "c_src/queue.c"
+, "directory" : "/Users/scouten/Projects/crash_esqlite_case/deps/esqlite"
+, "command"   : "cc -c -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -g -Wall -fPIC -MMD -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/lib/erl_interface-3.9.2/include\" -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/erts-8.2/include\" c_src/queue.c -o c_src/queue.o"
+},
+{ "file"      : "c_src/sqlite3.c"
+, "directory" : "/Users/scouten/Projects/crash_esqlite_case/deps/esqlite"
+, "command"   : "cc -c -DSQLITE_THREADSAFE=1 -DSQLITE_USE_URI -DSQLITE_ENABLE_FTS3 -DSQLITE_ENABLE_FTS3_PARENTHESIS -g -Wall -fPIC -MMD -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/lib/erl_interface-3.9.2/include\" -I\"/usr/local/Cellar/erlang/19.2/lib/erlang/erts-8.2/include\" c_src/sqlite3.c -o c_src/sqlite3.o"
+}
+]
