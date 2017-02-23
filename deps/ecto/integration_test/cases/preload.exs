@@ -1,4 +1,8 @@
 defmodule Ecto.Integration.PreloadTest do
+
+  # IMPORTANT! This test seems to be a necessary condition for the crash we're tracking.
+  # When I removed this test suite, it did not crash in 200 attempts.
+
   use Ecto.Integration.Case
 
   alias Ecto.Integration.TestRepo
