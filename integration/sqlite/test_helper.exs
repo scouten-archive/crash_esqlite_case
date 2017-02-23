@@ -55,12 +55,17 @@ defmodule Ecto.Integration.Case do
   use ExUnit.CaseTemplate
 
   setup_all do
+    IO.puts "begin_test_transaction"
     Ecto.Adapters.SQL.begin_test_transaction(TestRepo, [])
-    on_exit fn -> Ecto.Adapters.SQL.rollback_test_transaction(TestRepo, []) end
+    on_exit fn ->
+      IO.puts "rollback_test_transaction"
+      Ecto.Adapters.SQL.rollback_test_transaction(TestRepo, [])
+    end
     :ok
   end
 
   setup do
+    IO.puts "restart_test_transaction"
     Ecto.Adapters.SQL.restart_test_transaction(TestRepo, [])
     :ok
   end
