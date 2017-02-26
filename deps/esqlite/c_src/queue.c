@@ -1,4 +1,4 @@
-// This file is part of Emonk released under the MIT license.
+// This file is part of Emonk released under the MIT license. 
 // See the LICENSE file for more information.
 
 /* Adapted by: Maas-Maarten Zeeman <mmzeeman@xs4all.nl */
@@ -43,18 +43,18 @@ queue_create()
 
     ret->lock = enif_mutex_create("queue_lock");
     if(ret->lock == NULL) goto error;
-
+    
     ret->cond = enif_cond_create("queue_cond");
     if(ret->cond == NULL) goto error;
 
     return ret;
 
 error:
-    if(ret->lock != NULL)
+    if(ret->lock != NULL) 
         enif_mutex_destroy(ret->lock);
-    if(ret->cond != NULL)
+    if(ret->cond != NULL) 
         enif_cond_destroy(ret->cond);
-    if(ret != NULL)
+    if(ret != NULL) 
         enif_free(ret);
     return NULL;
 }
@@ -94,7 +94,7 @@ queue_has_item(queue *queue)
     enif_mutex_lock(queue->lock);
     ret = (queue->head != NULL);
     enif_mutex_unlock(queue->lock);
-
+    
     return ret;
 }
 
@@ -102,7 +102,7 @@ int
 queue_push(queue *queue, void *item)
 {
     qitem * entry = (qitem *) enif_alloc(sizeof(struct qitem_t));
-    if(entry == NULL)
+    if(entry == NULL) 
         return 0;
 
     entry->data = item;
@@ -112,7 +112,7 @@ queue_push(queue *queue, void *item)
     enif_mutex_lock(queue->lock);
 
     assert(queue->length >= 0 && "Invalid queue size at push");
-
+    
     if(queue->tail != NULL)
         queue->tail->next = entry;
 
@@ -137,12 +137,12 @@ queue_pop(queue *queue)
 
     printf("queue_pop q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
     enif_mutex_lock(queue->lock);
-
+    
     /* Wait for an item to become available.
      */
     while(queue->head == NULL)
         enif_cond_wait(queue->cond, queue->lock);
-
+    
     assert(queue->length >= 0 && "Invalid queue size at pop.");
 
     /* Woke up because queue->head != NULL
@@ -186,7 +186,7 @@ queue_receive(queue *queue)
 
     printf("queue_receive q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
     enif_mutex_lock(queue->lock);
-
+    
     /* Wait for an item to become available.
      */
     while(queue->message == NULL)
@@ -194,8 +194,8 @@ queue_receive(queue *queue)
 
     item = queue->message;
     queue->message = NULL;
-
+    
     enif_mutex_unlock(queue->lock);
-
+    
     return item;
 }
