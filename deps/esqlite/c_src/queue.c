@@ -67,6 +67,7 @@ queue_destroy(queue *queue)
     int length;
 
     printf("queue_destroy q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
     lock = queue->lock;
     cond = queue->cond;
@@ -91,6 +92,7 @@ queue_has_item(queue *queue)
     int ret;
 
     printf("queue_has_item q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
     ret = (queue->head != NULL);
     enif_mutex_unlock(queue->lock);
@@ -109,6 +111,7 @@ queue_push(queue *queue, void *item)
     entry->next = NULL;
 
     printf("queue_push q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
 
     assert(queue->length >= 0 && "Invalid queue size at push");
@@ -136,6 +139,7 @@ queue_pop(queue *queue)
     void* item;
 
     printf("queue_pop q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
     
     /* Wait for an item to become available.
@@ -171,6 +175,7 @@ int
 queue_send(queue *queue, void *item)
 {
     printf("queue_send q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
     assert(queue->message == NULL && "Attempting to send multiple messages.");
     queue->message = item;
@@ -185,6 +190,7 @@ queue_receive(queue *queue)
     void *item;
 
     printf("queue_receive q = %016lx calling enif_mutex_lock\n", (unsigned long) queue);
+    fflush(stdout);
     enif_mutex_lock(queue->lock);
     
     /* Wait for an item to become available.

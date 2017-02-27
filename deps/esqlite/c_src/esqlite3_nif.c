@@ -224,16 +224,20 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
      * the database (if it was still open).
      */
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx draining remaining commands\n", (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     while(queue_has_item(db->commands)) command_destroy(queue_pop(db->commands));
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx queue is empty\n", (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     queue_destroy(db->commands);
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx queue destroyed\n", (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
 
     if(db->db) {
         sqlite3_close_v2(db->db);
         db->db = NULL;
     }
     printf("destruct_esqlite_connection conn = %016lx DONE\n", (unsigned long) db);
+    fflush(stdout);
 }
 
 static void
@@ -349,6 +353,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 	    return make_error_tuple(env, "no_memory");
 
     printf("do_prepare conn = %016lx sql = %s\n", (unsigned long) conn, (char*) bin.data);
+    fflush(stdout);
     stmt->connection = conn;
 
     rc = sqlite3_prepare_v2(conn->db, (char *) bin.data, bin.size, &(stmt->statement), &tail);
@@ -361,6 +366,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
     enif_release_resource(stmt);
 
     printf("do_prepare conn = %016lx DONE\n", (unsigned long) conn);
+    fflush(stdout);
 
     return make_ok_tuple(env, esqlite_stmt);
 }
@@ -675,11 +681,14 @@ esqlite_connection_run(void *arg)
 {
     esqlite_connection *db = (esqlite_connection *) arg;
     printf("esqlite_connection_run conn = %016lx queue = %016lx command thread START\n", (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     esqlite_command *cmd;
     int continue_running = 1;
      
     while(continue_running) {
 	    cmd = queue_pop(db->commands);
+	    printf("esqlite_connection_run conn = %016lx queue = %016lx command thread eval command %d\n", (unsigned long) db, (unsigned long) db->commands, cmd->type);
+    	fflush(stdout);
     
 	    if(cmd->type == cmd_stop) {
 	        continue_running = 0;
@@ -691,6 +700,7 @@ esqlite_connection_run(void *arg)
     }
 
     printf("esqlite_connection_run conn = %016lx queue = %016lx command thread EXIT\n", (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     return NULL;
 }
 
@@ -717,6 +727,7 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "command_queue_create_failed");
     }
     printf("esqlite_start conn = %016lx queue = %016lx\n", (unsigned long) conn, (unsigned long) conn->commands);
+    fflush(stdout);
 
     /* Start command processing thread */
     conn->opts = enif_thread_opts_create("esqldb_thread_opts");
@@ -725,6 +736,7 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "thread_create_failed");
     }
     printf("esqlite_start conn = %016lx queue = %016lx command thread %016lx created\n", (unsigned long) conn, (unsigned long) conn->commands, (unsigned long) conn->tid);
+    fflush(stdout);
 
     db_conn = enif_make_resource(env, conn);
     enif_release_resource(conn);
@@ -1105,12 +1117,34 @@ esqlite_close(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     return push_command(env, conn, cmd);
 }
 
+#include <stdio.h>
+#include <execinfo.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+void handler(int sig) {
+  void *array[30];
+  size_t size;
+
+  // get void*'s for all entries on the stack
+  size = backtrace(array, 30);
+
+  // print out all the frames to stderr
+  fprintf(stderr, "Error: signal %d:\n", sig);
+  backtrace_symbols_fd(array, size, STDERR_FILENO);
+  exit(1);
+}
+
+
 /*
  * Load the nif. Initialize some stuff and such
  */
 static int 
 on_load(ErlNifEnv* env, void** priv, ERL_NIF_TERM info)
 {
+  signal(SIGSEGV, handler);   // install our handler
+
     ErlNifResourceType *rt;
      
     rt = enif_open_resource_type(env, "esqlite3_nif", "esqlite_connection_type", 
