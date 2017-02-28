@@ -248,7 +248,8 @@ destruct_esqlite_statement(ErlNifEnv *env, void *arg)
     esqlite_statement *stmt = (esqlite_statement *) arg;
 
     if(stmt->statement) {
-	   sqlite3_finalize(stmt->statement);
+       printf("destruct_esqlite_statement stmt = %016lx\n", (unsigned long) stmt->statement);
+       sqlite3_finalize(stmt->statement);
 	   stmt->statement = NULL;
     }
 
@@ -366,6 +367,8 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
         enif_release_resource(stmt);
         return make_sqlite3_error_tuple(env, rc, conn->db);
     }
+    
+    printf("do_prepare stmt = %016lx stmt = %016lx\n", (unsigned long) stmt->statement);
 
     esqlite_stmt = enif_make_resource(env, stmt);
     enif_release_resource(stmt);
@@ -561,6 +564,7 @@ do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
+	printf("do_column_names stmt = %016lx\n", stmt);
     int i, size;
     const char *name;
     ERL_NIF_TERM *array;
@@ -594,6 +598,7 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
+	printf("do_column_types stmt = %016lx\n", stmt);
     int i, size;
     const char *type;
     ERL_NIF_TERM *array;
