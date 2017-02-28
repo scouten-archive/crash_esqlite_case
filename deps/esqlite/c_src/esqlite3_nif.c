@@ -233,6 +233,8 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
     fflush(stdout);
 
     if(db->db) {
+	    printf("destruct_esqlite_connection conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db);
+	    fflush(stdout);
         sqlite3_close_v2(db->db);
         db->db = NULL;
     }
@@ -268,6 +270,7 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
     /* Open the database. 
      */
     rc = sqlite3_open(filename, &db->db);
+    
     if(rc != SQLITE_OK) {
 	    error = make_sqlite3_error_tuple(env, rc, db->db);
 	    sqlite3_close_v2(db->db);
@@ -275,6 +278,8 @@ do_open(ErlNifEnv *env, esqlite_connection *db, const ERL_NIF_TERM arg)
      
 	    return error;
     }
+
+	printf("do_open conn = %016lx queue = %016lx sqlite3 db %016lx created\n", (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db);
 
     sqlite3_busy_timeout(db->db, 2000);
 
@@ -623,6 +628,8 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     int rc;
      
+	printf("do_close conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) conn, (unsigned long) conn->commands, (unsigned long) conn->db);
+	
     rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK) 
 	    return make_sqlite3_error_tuple(env, rc, conn->db);
@@ -676,18 +683,20 @@ make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
     return enif_make_tuple3(cmd->env, atom_esqlite3, cmd->ref, answer);
 }
 
+#include <pthread.h>
+
 static void *
 esqlite_connection_run(void *arg)
 {
     esqlite_connection *db = (esqlite_connection *) arg;
-    printf("esqlite_connection_run conn = %016lx queue = %016lx command thread START\n", (unsigned long) db, (unsigned long) db->commands);
+    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx command thread START\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands);
     fflush(stdout);
     esqlite_command *cmd;
     int continue_running = 1;
      
     while(continue_running) {
 	    cmd = queue_pop(db->commands);
-	    printf("esqlite_connection_run conn = %016lx queue = %016lx command thread eval command %d\n", (unsigned long) db, (unsigned long) db->commands, cmd->type);
+	    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx, db = %016lx command thread eval command %d\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db, cmd->type);
     	fflush(stdout);
     
 	    if(cmd->type == cmd_stop) {
@@ -699,7 +708,7 @@ esqlite_connection_run(void *arg)
 	    command_destroy(cmd);    
     }
 
-    printf("esqlite_connection_run conn = %016lx queue = %016lx command thread EXIT\n", (unsigned long) db, (unsigned long) db->commands);
+    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx command thread EXIT\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands);
     fflush(stdout);
     return NULL;
 }
@@ -1131,7 +1140,7 @@ void handler(int sig) {
   size = backtrace(array, 30);
 
   // print out all the frames to stderr
-  fprintf(stderr, "Error: signal %d:\n", sig);
+  fprintf(stderr, "Error: signal %d in thread %016lx:\n", sig, (unsigned long) pthread_self());
   backtrace_symbols_fd(array, size, STDERR_FILENO);
   exit(1);
 }
