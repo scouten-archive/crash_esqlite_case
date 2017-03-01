@@ -501,6 +501,7 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
 static ERL_NIF_TERM
 make_row(ErlNifEnv *env, sqlite3_stmt *statement) 
 {
+	printf("do_column_names stmt = %016lx\n", stmt);
     int i, size;
     ERL_NIF_TERM *array;
     ERL_NIF_TERM row;
@@ -558,6 +559,7 @@ do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
+	printf("do_column_names stmt = %016lx\n", stmt);
     int i, size;
     const char *name;
     ERL_NIF_TERM *array;
@@ -591,6 +593,7 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
+	printf("do_column_types stmt = %016lx\n", stmt);
     int i, size;
     const char *type;
     ERL_NIF_TERM *array;
@@ -625,6 +628,8 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     int rc;
      
+	printf("do_close conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) conn, (unsigned long) conn->commands, (unsigned long) conn->db);
+	
     rc = sqlite3_close_v2(conn->db);
     if(rc != SQLITE_OK) 
 	    return make_sqlite3_error_tuple(env, rc, conn->db);
@@ -678,15 +683,21 @@ make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
     return enif_make_tuple3(cmd->env, atom_esqlite3, cmd->ref, answer);
 }
 
+#include <pthread.h>
+
 static void *
 esqlite_connection_run(void *arg)
 {
     esqlite_connection *db = (esqlite_connection *) arg;
+    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx command thread START\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     esqlite_command *cmd;
     int continue_running = 1;
      
     while(continue_running) {
 	    cmd = queue_pop(db->commands);
+	    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx, db = %016lx command thread eval command %d\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db, cmd->type);
+    	fflush(stdout);
     
 	    if(cmd->type == cmd_stop) {
 	        continue_running = 0;
@@ -697,6 +708,8 @@ esqlite_connection_run(void *arg)
 	    command_destroy(cmd);    
     }
 
+    printf("esqlite_connection_run tid = %016lx, conn = %016lx queue = %016lx command thread EXIT\n", (unsigned long) pthread_self(), (unsigned long) db, (unsigned long) db->commands);
+    fflush(stdout);
     return NULL;
 }
 
@@ -722,6 +735,8 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	    enif_release_resource(conn);
 	    return make_error_tuple(env, "command_queue_create_failed");
     }
+    printf("esqlite_start conn = %016lx queue = %016lx\n", (unsigned long) conn, (unsigned long) conn->commands);
+    fflush(stdout);
 
     /* Start command processing thread */
     conn->opts = enif_thread_opts_create("esqldb_thread_opts");
@@ -729,6 +744,8 @@ esqlite_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	    enif_release_resource(conn);
 	    return make_error_tuple(env, "thread_create_failed");
     }
+    printf("esqlite_start conn = %016lx queue = %016lx command thread %016lx created\n", (unsigned long) conn, (unsigned long) conn->commands, (unsigned long) conn->tid);
+    fflush(stdout);
 
     db_conn = enif_make_resource(env, conn);
     enif_release_resource(conn);
