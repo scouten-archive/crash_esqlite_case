@@ -22,6 +22,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <pthread.h>
+
 #include "sqlite3.h"
 #include "queue.h"
 
@@ -250,6 +252,8 @@ destruct_esqlite_statement(ErlNifEnv *env, void *arg)
        printf("destruct_esqlite_statement stmt = %016lx\n", (unsigned long) stmt->statement);
 	   sqlite3_finalize(stmt->statement);
 	   stmt->statement = NULL;
+    } else {
+    	printf("destruct_esqlite_statement NO STATEMENT ?!?!? thread = %016lx\n", (unsigned long) pthread_self());
     }
 }
 
@@ -362,7 +366,7 @@ do_prepare(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
         return make_sqlite3_error_tuple(env, rc, conn->db);
     }
 
-    printf("do_prepare stmt = %016lx stmt = %016lx\n", (unsigned long) stmt->statement);
+    printf("do_prepare stmt = %016lx\n", (unsigned long) stmt->statement);
 
     esqlite_stmt = enif_make_resource(env, stmt);
     enif_release_resource(stmt);
@@ -501,7 +505,7 @@ make_cell(ErlNifEnv *env, sqlite3_stmt *statement, unsigned int i)
 static ERL_NIF_TERM
 make_row(ErlNifEnv *env, sqlite3_stmt *statement) 
 {
-	printf("do_column_names stmt = %016lx\n", stmt);
+	printf("do_column_names stmt = %016lx\n", (unsigned long) statement);
     int i, size;
     ERL_NIF_TERM *array;
     ERL_NIF_TERM row;
@@ -559,7 +563,7 @@ do_reset(ErlNifEnv *env, sqlite3 *db, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
-	printf("do_column_names stmt = %016lx\n", stmt);
+	printf("do_column_names stmt = %016lx\n", (unsigned long) stmt);
     int i, size;
     const char *name;
     ERL_NIF_TERM *array;
@@ -593,7 +597,7 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
 static ERL_NIF_TERM
 do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
 {
-	printf("do_column_types stmt = %016lx\n", stmt);
+	printf("do_column_types stmt = %016lx\n", (unsigned long) stmt);
     int i, size;
     const char *type;
     ERL_NIF_TERM *array;
@@ -682,8 +686,6 @@ make_answer(esqlite_command *cmd, ERL_NIF_TERM answer)
 {
     return enif_make_tuple3(cmd->env, atom_esqlite3, cmd->ref, answer);
 }
-
-#include <pthread.h>
 
 static void *
 esqlite_connection_run(void *arg)
