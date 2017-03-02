@@ -72,7 +72,7 @@ typedef struct {
     ERL_NIF_TERM ref; 
     ErlNifPid pid;
     ERL_NIF_TERM arg;
-    sqlite3_stmt *stmt;
+    ERL_NIF_TERM stmt;
 } esqlite_command;
 
 static ERL_NIF_TERM atom_esqlite3;
@@ -196,7 +196,7 @@ command_create()
     cmd->type = cmd_unknown;
     cmd->ref = 0;
     cmd->arg = 0;
-    cmd->stmt = NULL;
+    cmd->stmt = 0;
 
     return cmd;
 }
@@ -226,19 +226,19 @@ destruct_esqlite_connection(ErlNifEnv *env, void *arg)
      */
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx draining remaining commands\n", (unsigned long) db, (unsigned long) db->commands);
     fflush(stdout);
-    while(queue_has_item(db->commands)) command_destroy(queue_pop(db->commands));
+    while(queue_has_item(db->commands)) {
+        command_destroy(queue_pop(db->commands));
+    }
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx queue is empty\n", (unsigned long) db, (unsigned long) db->commands);
     fflush(stdout);
     queue_destroy(db->commands);
     printf("destruct_esqlite_connection conn = %016lx queue = %016lx queue destroyed\n", (unsigned long) db, (unsigned long) db->commands);
     fflush(stdout);
 
-    if(db->db) {
-	    printf("destruct_esqlite_connection conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db);
-	    fflush(stdout);
-        sqlite3_close_v2(db->db);
-        db->db = NULL;
-    }
+    printf("destruct_esqlite_connection conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) db, (unsigned long) db->commands, (unsigned long) db->db);
+    fflush(stdout);
+    sqlite3_close_v2(db->db);
+    db->db = NULL;
     printf("destruct_esqlite_connection conn = %016lx DONE\n", (unsigned long) db);
     fflush(stdout);
 }
@@ -247,14 +247,9 @@ static void
 destruct_esqlite_statement(ErlNifEnv *env, void *arg)
 {
     esqlite_statement *stmt = (esqlite_statement *) arg;
-
-    if(stmt->statement) {
-       printf("destruct_esqlite_statement stmt = %016lx\n", (unsigned long) stmt->statement);
-	   sqlite3_finalize(stmt->statement);
-	   stmt->statement = NULL;
-    } else {
-    	printf("destruct_esqlite_statement NO STATEMENT ?!?!? thread = %016lx\n", (unsigned long) pthread_self());
-    }
+    printf("destruct_esqlite_statement stmt = %016lx\n", (unsigned long) stmt->statement);
+    sqlite3_finalize(stmt->statement);
+    stmt->statement = NULL;
 }
 
 static ERL_NIF_TERM
@@ -511,7 +506,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
     ERL_NIF_TERM row;
      
     size = sqlite3_column_count(statement);
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM)*size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM)*size);
 
     if(!array) 
 	    return make_error_tuple(env, "no_memory");
@@ -520,7 +515,7 @@ make_row(ErlNifEnv *env, sqlite3_stmt *statement)
 	    array[i] = make_cell(env, statement, i);
 
     row = make_row_tuple(env, enif_make_tuple_from_array(env, array, size));
-    free(array);
+    enif_free(array);
     return row;
 }
 
@@ -575,14 +570,14 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     else if(size < 0)
         return make_error_tuple(env, "invalid_column_count");
 
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)
         return make_error_tuple(env, "no_memory");
 
     for(i = 0; i < size; i++) {
         name = sqlite3_column_name(stmt, i);
         if(name == NULL) {
-            free(array);
+            enif_free(array);
             return make_error_tuple(env, "sqlite3_malloc_failure");
         }
 
@@ -590,7 +585,7 @@ do_column_names(ErlNifEnv *env, sqlite3_stmt *stmt)
     }
 
     column_names = enif_make_tuple_from_array(env, array, size);
-    free(array);
+    enif_free(array);
     return column_names;
 }
 
@@ -609,7 +604,7 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     else if(size < 0)
         return make_error_tuple(env, "invalid_column_count");
 
-    array = (ERL_NIF_TERM *) malloc(sizeof(ERL_NIF_TERM) * size);
+    array = (ERL_NIF_TERM *) enif_alloc(sizeof(ERL_NIF_TERM) * size);
     if(!array)
         return make_error_tuple(env, "no_memory");
 
@@ -623,7 +618,7 @@ do_column_types(ErlNifEnv *env, sqlite3_stmt *stmt)
     }
 
     column_types = enif_make_tuple_from_array(env, array, size);
-    free(array);
+    enif_free(array);
     return column_types;
 }
 
@@ -631,7 +626,7 @@ static ERL_NIF_TERM
 do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 {
     int rc;
-     
+
 	printf("do_close conn = %016lx queue = %016lx sqlite3 db %016lx destroyed\n", (unsigned long) conn, (unsigned long) conn->commands, (unsigned long) conn->db);
 	
     rc = sqlite3_close_v2(conn->db);
@@ -645,6 +640,14 @@ do_close(ErlNifEnv *env, esqlite_connection *conn, const ERL_NIF_TERM arg)
 static ERL_NIF_TERM
 evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
 {
+    esqlite_statement *stmt = NULL;
+
+    if(cmd->stmt) {
+        if(!enif_get_resource(cmd->env, cmd->stmt, esqlite_statement_type, (void **) &stmt)) {
+	    return make_error_tuple(cmd->env, "invalid_statement");
+        }
+    }
+
     switch(cmd->type) {
     case cmd_open:
 	    return do_open(cmd->env, conn, cmd->arg);
@@ -655,15 +658,15 @@ evaluate_command(esqlite_command *cmd, esqlite_connection *conn)
     case cmd_prepare:
 	    return do_prepare(cmd->env, conn, cmd->arg);
     case cmd_step:
-	    return do_step(cmd->env, conn->db, cmd->stmt);
+	    return do_step(cmd->env, conn->db, stmt->statement);
     case cmd_reset:
-	    return do_reset(cmd->env, conn->db, cmd->stmt);
+	    return do_reset(cmd->env, conn->db, stmt->statement);
     case cmd_bind:
-	    return do_bind(cmd->env, conn->db, cmd->stmt, cmd->arg);
+	    return do_bind(cmd->env, conn->db, stmt->statement, cmd->arg);
     case cmd_column_names:
-	    return do_column_names(cmd->env, cmd->stmt);
+	    return do_column_names(cmd->env, stmt->statement);
     case cmd_column_types:
-	    return do_column_types(cmd->env, cmd->stmt);
+	    return do_column_types(cmd->env, stmt->statement);
     case cmd_close:
 	    return do_close(cmd->env, conn, cmd->arg);
 	case cmd_insert:
@@ -773,6 +776,9 @@ esqlite_open(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
 	    return make_error_tuple(env, "invalid_ref");
     if(!enif_get_local_pid(env, argv[2], &pid)) 
 	    return make_error_tuple(env, "invalid_pid");
+
+    if(!sqlite3_threadsafe())
+	    return make_error_tuple(env, "sqlite3 not thread safe.");
 
     /* Note, no check is made for the type of the argument */
     cmd = command_create();
@@ -940,7 +946,7 @@ esqlite_bind(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_bind;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
     cmd->arg = enif_make_copy(cmd->env, argv[4]);
 
     return push_command(env, conn, cmd);
@@ -979,7 +985,7 @@ esqlite_step(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_step;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -1015,7 +1021,7 @@ esqlite_reset(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_reset;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -1051,7 +1057,7 @@ esqlite_column_names(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_column_names;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
@@ -1089,7 +1095,7 @@ esqlite_column_types(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     cmd->type = cmd_column_types;
     cmd->ref = enif_make_copy(cmd->env, argv[2]);
     cmd->pid = pid;
-    cmd->stmt = stmt->statement;
+    cmd->stmt = enif_make_copy(cmd->env, argv[1]);
 
     return push_command(env, conn, cmd);
 }
